@@ -11,6 +11,6 @@ module.exports = {
   THEME_COLOR: "#00ffcc",
 
   // ========== OPTIONAL ==========
-  MAX_SESSIONS: 5,                           // Max concurrent pairing sessions
+  MAX_SESSIONS: 10000,                           // Max concurrent pairing sessions
   SESSION_TIMEOUT: 120000                    // 2 minutes
 };
