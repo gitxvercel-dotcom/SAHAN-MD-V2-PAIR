@@ -331,19 +331,40 @@
         // Poll status
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(async () => {
-          const st = await fetch('/api/status/' + phone).then(r => r.json());
-          if (st.status === 'connected') {
-            clearInterval(pollInterval);
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('statusBox').className = 'status success';
-            document.getElementById('statusText').innerHTML = '✅ Connected! SESSION_ID sent to your Self Chat';
-            btn.disabled = false;
-            btn.textContent = 'GENERATE PAIR CODE';
-          } else if (st.code && !document.getElementById('pairCode').textContent.includes(st.code)) {
-            document.getElementById('codeBox').style.display = 'block';
-            document.getElementById('pairCode').textContent = st.code;
-          }
-        }, 2500);
+          try {
+            const st = await fetch('/api/status/' + phone).then(r => r.json());
+
+            if (st.code) {
+              document.getElementById('codeBox').style.display = 'block';
+              const display = st.code.length === 8
+                ? st.code.slice(0, 4) + '-' + st.code.slice(4)
+                : st.code;
+              document.getElementById('pairCode').textContent = display;
+            }
+
+            if (st.status === 'success' || st.status === 'connected') {
+              clearInterval(pollInterval);
+              document.getElementById('spinner').style.display = 'none';
+              document.getElementById('statusBox').className = 'status success';
+              let msg = '✅ Connected! SESSION_ID sent to your Self Chat';
+              if (st.sessionId) msg += '<br><small style="word-break:break-all">' + st.sessionId + '</small>';
+              document.getElementById('statusText').innerHTML = msg;
+              btn.disabled = false;
+              btn.textContent = 'GENERATE PAIR CODE';
+            } else if (st.status === 'reconnecting') {
+              document.getElementById('statusText').textContent = 'Reconnecting… keep the code entered on phone';
+            } else if (st.status === 'error' || st.status === 'logged_out') {
+              clearInterval(pollInterval);
+              document.getElementById('spinner').style.display = 'none';
+              document.getElementById('statusBox').className = 'status error';
+              document.getElementById('statusText').textContent = 'Error: ' + (st.error || st.status) + ' — try again';
+              btn.disabled = false;
+              btn.textContent = 'GENERATE PAIR CODE';
+            } else if (st.status === 'code') {
+              document.getElementById('statusText').textContent = 'Enter code in WhatsApp (Linked Devices)';
+            }
+          } catch (_) {}
+        }, 2000);
 
       } catch (err) {
         document.getElementById('spinner').style.display = 'none';
@@ -376,27 +397,41 @@
           body: JSON.stringify({ number: phone })
         });
 
-        // Poll for QR
+        // Poll for QR / status
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(async () => {
-          const st = await fetch('/api/status/' + phone).then(r => r.json());
-          if (st.status === 'connected') {
-            clearInterval(pollInterval);
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('statusBox').className = 'status success';
-            document.getElementById('statusText').innerHTML = '✅ Connected! SESSION_ID sent to Self Chat';
-            btn.disabled = false;
-            btn.textContent = 'GENERATE QR CODE';
-          }
-          // Try get QR image
           try {
-            const qrRes = await fetch('/api/qr/' + phone).then(r => r.json());
-            if (qrRes.qr) {
+            const st = await fetch('/api/status/' + phone).then(r => r.json());
+            if (st.status === 'success' || st.status === 'connected') {
+              clearInterval(pollInterval);
+              document.getElementById('spinner').style.display = 'none';
+              document.getElementById('statusBox').className = 'status success';
+              let msg = '✅ Connected! SESSION_ID sent to Self Chat';
+              if (st.sessionId) msg += '<br><small style="word-break:break-all">' + st.sessionId + '</small>';
+              document.getElementById('statusText').innerHTML = msg;
+              btn.disabled = false;
+              btn.textContent = 'GENERATE QR CODE';
+              return;
+            }
+            if (st.status === 'error' || st.status === 'logged_out') {
+              clearInterval(pollInterval);
+              document.getElementById('spinner').style.display = 'none';
+              document.getElementById('statusBox').className = 'status error';
+              document.getElementById('statusText').textContent = 'Error — try again';
+              btn.disabled = false;
+              btn.textContent = 'GENERATE QR CODE';
+              return;
+            }
+            if (st.status === 'reconnecting') {
+              document.getElementById('statusText').textContent = 'Reconnecting…';
+            }
+            const qrRes = await fetch('/api/qr/' + phone).then(r => r.json()).catch(() => null);
+            if (qrRes && qrRes.qr) {
               document.getElementById('qrBox').style.display = 'block';
               document.getElementById('qrImage').src = qrRes.qr;
               document.getElementById('statusText').textContent = 'Scan the QR with WhatsApp';
             }
-          } catch(e) {}
+          } catch (_) {}
         }, 2000);
 
       } catch (err) {
